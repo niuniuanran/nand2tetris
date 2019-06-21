@@ -13,10 +13,10 @@ class Parser(object):
             exit()
 
         self.curr_line = "\n"
-        self.file_path = findall("(.+)[.]vm$", file_path)[0]
-        self.file_name = findall("([a-zA-Z]+)[.]vm$", file_path)[0]
+        self.file_name = findall("([^/]+)[.]vm$", file_path)[0]
         self.arithmetic_set = {"add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"}
         self.args = []
+        self.curr_func = []
 
     def has_more_commands(self):
         if len(self.curr_line) == 0:
@@ -51,6 +51,26 @@ class Parser(object):
             return "POP"
         elif self.args[0] == "push":
             return "PUSH"
+        elif self.args[0] == "label":
+            return "LABEL"
+        # label bar within function foo in a file xxx.vm will
+        # generate (xxx.foo$bar) label in assembly language
+        elif self.args[0] == "if-goto":
+            return "IF-GOTO"
+        # pop out the current stack top value, and jump if the value is not 0.
+        # negative or positive values all induce goto operation.
+        elif self.args[0] == "goto":
+            return "GOTO"
+        elif self.args[0] == "function":
+            return "FUNCTION"
+        # function foo in xxx.vm will be named xxx.foo in assembly.
+        elif self.args[0] == "return":
+            return "RETURN"
+        elif self.args[0] == "call":
+            return "CALL"
+        # to save the return address of a function of foo in the xxx.vm file,
+        # use xxx.foo$ret.i, where i is a running number recording the number of times
+        # function foo has been called within the xxx.vm file.
         else:
             print(self.curr_line, "Unknown command type!")
             exit()
@@ -59,14 +79,20 @@ class Parser(object):
         if self.command_type() == "A":
             return self.args[0]
 
-        if self.command_type() in {"POP", "PUSH"}:
+        elif self.command_type() in {"POP", "PUSH", "GOTO", "IF-GOTO", "FUNCTION", "CALL", "LABEL"}:
             return self.args[1]
+        else:
+            print(self.curr_line)
+            print("Nothing to give for arg1")
+            exit()
 
     def arg2(self):
-        if self.command_type() in {"POP", "PUSH"} and len(self.args) >= 3:
+        if self.command_type() in {"POP", "PUSH", "FUNCTION", "CALL"} and len(self.args) >= 3:
             return self.args[2]
-        if self.command_type() == "A":
-            return None
+        else:
+            print(self.curr_line)
+            print("Nothing to give for arg2")
+            exit()
 
     def finish_parser(self):
         self.vm_stream.close()
